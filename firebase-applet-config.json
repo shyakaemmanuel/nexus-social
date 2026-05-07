@@ -1,0 +1,14 @@
+{
+  "projectId": "nexus-social-app-bf6df",
+  "appId": "1:393950954918:web:3e2e583224a6144dc2bb67",
+  "apiKey": "AIzaSyAxX-CuxXc4rLQfZ7tn6X5Bm2DHnH4H2AA",
+  "authDomain": "nexus-social-app-bf6df.firebaseapp.com",
+  "storageBucket": "nexus-social-app-bf6df.firebasestorage.app",
+  "messagingSenderId": "393950954918",
+  "measurementId": "G-VME9XBV13W",
+  "cloudinary": {
+    "cloudName": "dyxpubjkt",
+    "apiKey": "166928934563325",
+    "uploadPreset": "nexus-social-uploads"
+  }
+}

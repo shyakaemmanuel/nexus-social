@@ -1,0 +1,6 @@
+{
+  "name": "Nexus Social",
+  "description": "A professional social media platform with real-time chat, groups, and media sharing.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": []
+}

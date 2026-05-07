@@ -1,0 +1,60 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+
+    function isValidFileType() {
+      return isImage() || isVideo();
+    }
+
+    match /posts/{postId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileType();
+    }
+
+    match /stories/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && userId == request.auth.uid && isValidFileType();
+    }
+
+    match /users/{userId}/profile/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && userId == request.auth.uid && isImage();
+    }
+
+    match /groups/{groupId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileType();
+    }
+
+    match /recordings/{meetingId}/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && userId == request.auth.uid && isVideo();
+    }
+
+    match /reels/{reelId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isVideo();
+    }
+
+    match /chats/{chatId}/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && userId == request.auth.uid && isValidFileType();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

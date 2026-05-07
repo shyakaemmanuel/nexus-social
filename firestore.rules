@@ -1,0 +1,332 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Check if user A follows user B
+    function isFollowing(followerUid, followingUid) {
+      return exists(/databases/$(database)/documents/users/$(followerUid)/following/$(followingUid));
+    }
+
+    // Check if users follow each other (mutual follow)
+    function areMutualFollowers(uid1, uid2) {
+      return isFollowing(uid1, uid2) && isFollowing(uid2, uid1);
+    }
+
+    // Check if user is blocked
+    function isBlocked(blockerUid, blockedUid) {
+      return exists(/databases/$(database)/documents/users/$(blockerUid)/blockedUsers/$(blockedUid));
+    }
+
+    // Check if user can view another user's content
+    function canViewContent(viewerUid, ownerUid, isPrivate) {
+      return viewerUid == ownerUid || 
+             !isPrivate || 
+             isFollowing(viewerUid, ownerUid);
+    }
+
+    // Check if user can send message
+    function canSendMessage(senderUid, recipientUid, recipientSettings) {
+      return senderUid == recipientUid ||
+             recipientSettings.allowDirectMessages == 'everyone' ||
+             (recipientSettings.allowDirectMessages == 'following' && isFollowing(senderUid, recipientUid)) ||
+             areMutualFollowers(senderUid, recipientUid);
+    }
+
+    // Safe check for isPrivate field
+    function isPrivateContent(isPrivate) {
+      return isPrivate == true;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      // Public profile info - anyone can read basic info
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      
+      // Only user can create/update/delete their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+
+      // Blocked users - only owner can manage
+      match /blockedUsers/{blockedUserId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Saved posts - only owner can manage
+      match /savedPosts/{postId} {
+        allow read, create, delete: if isOwner(userId);
+      }
+
+      // Highlights - public read, owner write
+      match /highlights/{highlightId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isOwner(userId);
+      }
+
+      // Notifications - only owner can read/update, anyone can create (for notifications)
+      match /notifications/{notificationId} {
+        allow read, update, delete: if isOwner(userId);
+        allow create: if isAuthenticated();
+      }
+
+      // Followers - public read, owner can manage
+      match /followers/{followerId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+
+      // Following - public read, owner can manage
+      match /following/{followingId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+
+      // Follow requests - for private accounts
+      match /followRequests/{requestId} {
+        allow read: if isOwner(userId) || request.auth.uid == resource.data.fromUid;
+        allow create: if request.auth.uid == resource.data.fromUid;
+        allow update, delete: if isOwner(userId);
+      }
+    }
+
+    // POSTS COLLECTION
+    match /posts/{postId} {
+      // Read post if: owner, public post, or following the author
+      allow get: if isAuthenticated() && 
+                canViewContent(request.auth.uid, resource.data.authorUid, isPrivateContent(resource.data.isPrivate));
+      
+      allow list: if isAuthenticated();
+      
+      // Only owner can create/update/delete their posts
+      allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuthenticated() && isDocOwner();
+      allow delete: if isAuthenticated() && isDocOwner();
+
+      // Comments on posts
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+        allow delete: if isAuthenticated() && request.auth.uid == resource.data.authorUid;
+      }
+
+      // Likes on posts
+      match /likes/{userId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+    }
+
+    // CHATS COLLECTION
+    match /chats/{chatId} {
+      // Only participants can read/create/update/delete chats
+      allow get: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow delete: if isAuthenticated() && request.auth.uid in resource.data.participants;
+
+      // Messages in chat
+      match /messages/{messageId} {
+        // Only chat participants can read messages
+        allow read: if isAuthenticated() && 
+                  request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        
+        // Only sender can create messages (and must be a chat participant)
+        allow create: if isAuthenticated() && 
+                  request.resource.data.senderUid == request.auth.uid &&
+                  request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        
+        // Only sender can update their messages (e.g., for status updates)
+        allow update: if isAuthenticated() && 
+                  request.auth.uid == resource.data.senderUid;
+        
+        // Allow delete by sender or chat participants
+        allow delete: if isAuthenticated() && (
+                  request.auth.uid == resource.data.senderUid ||
+                  request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+        );
+      }
+
+      // Typing indicators subcollection
+      match /typing/{userId} {
+        allow read: if isAuthenticated() && 
+                  request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create, update: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // WebRTC signaling
+      match /signaling/{signalId} {
+        allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+        allow create: if isAuthenticated() && request.resource.data.from == request.auth.uid;
+        allow delete: if isAuthenticated() && resource.data.from == request.auth.uid;
+      }
+    }
+
+    // GROUPS COLLECTION
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.creatorUid == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.creatorUid == request.auth.uid || 
+        request.auth.uid in resource.data.adminUids
+      );
+      allow delete: if isAuthenticated() && (
+        resource.data.creatorUid == request.auth.uid || 
+        request.auth.uid in resource.data.adminUids
+      );
+
+      match /posts/{postId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+        allow delete: if isAuthenticated() && (
+          request.auth.uid == resource.data.authorUid || 
+          resource.data.creatorUid == request.auth.uid || 
+          request.auth.uid in resource.data.adminUids
+        );
+      }
+
+      match /members/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && userId == request.auth.uid;
+        allow delete: if isAuthenticated() && (
+          userId == request.auth.uid || 
+          resource.data.creatorUid == request.auth.uid || 
+          request.auth.uid in resource.data.adminUids
+        );
+      }
+    }
+
+    // STORIES COLLECTION
+    match /stories/{storyId} {
+      // View story if: owner, public story, or following the author
+      allow get: if isAuthenticated() && 
+                resource.data.expiresAt > request.time &&
+                canViewContent(request.auth.uid, resource.data.authorUid, isPrivateContent(resource.data.isPrivate));
+      
+      allow list: if isAuthenticated();
+      
+      // Only owner can create/update/delete their stories
+      allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.authorUid == request.auth.uid;
+      allow delete: if isAuthenticated() && (
+        resource.data.authorUid == request.auth.uid ||
+        resource.data.expiresAt <= request.time
+      );
+    }
+
+    // RECORDINGS COLLECTION
+    match /recordings/{recordingId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // REELS COLLECTION
+    match /reels/{reelId} {
+      // View reel if: owner, public reel, or following the author
+      allow get: if isAuthenticated() && 
+                canViewContent(request.auth.uid, resource.data.authorUid, isPrivateContent(resource.data.isPrivate));
+      
+      allow list: if isAuthenticated();
+      
+      // Only owner can create/update/delete their reels
+      allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.authorUid == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.authorUid == request.auth.uid;
+
+      match /likes/{userId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+        allow delete: if isAuthenticated() && request.auth.uid == resource.data.authorUid;
+      }
+    }
+
+    // STATS COLLECTION
+    match /stats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // FOLLOW COLLECTION (for quick follow lookups)
+    match /follows/{followId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.followerUid == request.auth.uid;
+      allow delete: if isAuthenticated() && request.resource.data.followerUid == request.auth.uid;
+    }
+
+    // FOLLOW REQUESTS COLLECTION
+    match /followRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+                (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+      allow create: if isAuthenticated() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.toUid;
+      allow delete: if isAuthenticated() && 
+                (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+    }
+
+    // MEETINGS COLLECTION
+    match /meetings/{meetingId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.hostUid || (resource.data.participants != null && request.auth.uid in resource.data.participants));
+      allow create: if isAuthenticated() && request.resource.data.hostUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.hostUid == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.hostUid == request.auth.uid;
+
+      // Participants subcollection
+      match /participants/{participantId} {
+        allow read: if isAuthenticated() && (resource.data.participants != null && request.auth.uid in resource.data.participants);
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      }
+
+      // Signaling subcollection (WebRTC)
+      match /signaling/{signalId} {
+        allow read: if isAuthenticated() && (request.auth.uid == resource.data.to || request.auth.uid == resource.data.from);
+        allow create: if isAuthenticated() && request.resource.data.from == request.auth.uid;
+        allow delete: if isAuthenticated() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+      }
+    }
+
+    // MEETING INVITATIONS COLLECTION
+    match /meetingInvitations/{invitationId} {
+      allow read: if isAuthenticated() && 
+                (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+      allow create: if isAuthenticated() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.toUid;
+      allow delete: if isAuthenticated() && 
+                (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+    }
+
+    // CALL LOGS COLLECTION
+    match /callLogs/{callLogId} {
+      allow read: if isAuthenticated() && 
+                (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+      allow create: if isAuthenticated() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.fromUid;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

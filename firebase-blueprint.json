@@ -1,0 +1,340 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "status": { "type": "string", "enum": ["online", "away", "busy", "offline"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "followersCount": { "type": "number" },
+        "followingCount": { "type": "number" },
+        "location": { "type": "string" },
+        "website": { "type": "string" }
+      },
+      "required": ["uid", "displayName", "email", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Social media feed post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "groupId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorUid", "content", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comment on a post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "authorUid", "content", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Conversation between users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["direct", "group"] },
+        "name": { "type": "string" },
+        "groupId": { "type": "string" }
+      },
+      "required": ["id", "participants", "type"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Individual message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "content": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["text", "image", "video"] },
+        "read": { "type": "boolean" },
+        "readAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "chatId", "senderUid", "content", "createdAt"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Community group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "creatorUid": { "type": "string" },
+        "adminUids": { "type": "array", "items": { "type": "string" } },
+        "chatId": { "type": "string" },
+        "membersCount": { "type": "number" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "creatorUid", "createdAt"]
+    },
+    "SavedPost": {
+      "title": "SavedPost",
+      "description": "A post saved by a user",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "savedAt"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Short-lived content (24h)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "viewers": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "authorUid", "mediaUrl", "createdAt", "expiresAt"]
+    },
+    "Highlight": {
+      "title": "Highlight",
+      "description": "Group of saved stories on profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "storyIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "storyIds", "createdAt"]
+    },
+    "Stat": {
+      "title": "Stat",
+      "description": "Platform statistics data point",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "value": { "type": "number" },
+        "label": { "type": "string" }
+      },
+      "required": ["timestamp", "value"]
+    },
+    "Meeting": {
+      "title": "Meeting",
+      "description": "Video meeting room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hostUid": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "ended", "scheduled"] },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "hostUid", "title", "status", "createdAt"]
+    },
+    "MeetingSignaling": {
+      "title": "MeetingSignaling",
+      "description": "WebRTC signaling data",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["offer", "answer", "candidate", "call-init", "leave"] },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "data": { "type": "string" }
+      },
+      "required": ["type", "from", "data"]
+    },
+    "Recording": {
+      "title": "Recording",
+      "description": "Saved meeting recording",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "meetingId": { "type": "string" },
+        "userId": { "type": "string" },
+        "url": { "type": "string" },
+        "duration": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "meetingId", "userId", "url", "createdAt"]
+    },
+    "MeetingMessage": {
+      "title": "MeetingMessage",
+      "description": "Text message sent during a meeting",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "senderName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderUid", "senderName", "content", "createdAt"]
+    },
+    "BlockedUser": {
+      "title": "BlockedUser",
+      "description": "Information about a blocked user",
+      "type": "object",
+      "properties": {
+        "blockedUid": { "type": "string" },
+        "blockedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["blockedUid", "blockedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["message", "group_activity", "meeting_invite"] },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "data": { "type": "object" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "type", "title", "body", "createdAt"]
+    },
+    "Reel": {
+      "title": "Reel",
+      "description": "Short-form video",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "sharesCount": { "type": "number" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorUid", "authorName", "videoUrl", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/stats/{statId}": {
+      "schema": "Stat",
+      "description": "Real-time platform statistics"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/savedPosts/{postId}": {
+      "schema": "SavedPost",
+      "description": "Posts saved by the user"
+    },
+    "/users/{userId}/highlights/{highlightId}": {
+      "schema": "Highlight",
+      "description": "Story highlights on user profile"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User-specific notifications"
+    },
+    "/users/{userId}/blockedUsers/{blockedUserId}": {
+      "schema": "BlockedUser",
+      "description": "Users blocked by this user"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Active stories"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Global feed posts"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments on posts"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Chat session metadata"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a chat"
+    },
+    "/chats/{chatId}/signaling/{signalId}": {
+      "schema": "MeetingSignaling",
+      "description": "WebRTC signaling for chat video calls"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Community groups"
+    },
+    "/groups/{groupId}/members/{userId}": {
+      "schema": "User",
+      "description": "Members of a group"
+    },
+    "/groups/{groupId}/posts/{postId}": {
+      "schema": "Post",
+      "description": "Posts within a group"
+    },
+    "/meetings/{meetingId}": {
+      "schema": "Meeting",
+      "description": "Video meeting sessions"
+    },
+    "/meetings/{meetingId}/signaling/{signalId}": {
+      "schema": "MeetingSignaling",
+      "description": "WebRTC signaling for the meeting"
+    },
+    "/meetings/{meetingId}/messages/{messageId}": {
+      "schema": "MeetingMessage",
+      "description": "Chat messages within a meeting"
+    },
+    "/recordings/{recordingId}": {
+      "schema": "Recording",
+      "description": "Meeting recordings"
+    },
+    "/reels/{reelId}": {
+      "schema": "Reel",
+      "description": "Short-form videos"
+    }
+  }
+}

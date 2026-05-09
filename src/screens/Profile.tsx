@@ -192,9 +192,11 @@ export default function Profile() {
           console.error('Error loading saved posts:', error);
         }
       });
-
-      return () => removeListener('Profile-savedPosts');
+    } else {
+      removeListener('Profile-savedPosts');
     }
+
+    return () => removeListener('Profile-savedPosts');
   }, [activeTab, currentUser, targetUid, addListener, removeListener]);
 
   useEffect(() => {
@@ -222,9 +224,11 @@ export default function Profile() {
           console.error('Error loading recordings:', error);
         }
       });
-
-      return () => removeListener('Profile-recordings');
+    } else {
+      removeListener('Profile-recordings');
     }
+
+    return () => removeListener('Profile-recordings');
   }, [activeTab, targetUid, addListener, removeListener]);
 
   const handleLogout = async () => {
@@ -706,106 +710,105 @@ export default function Profile() {
       {/* Edit Profile Modal */}
       <AnimatePresence>
         {isEditing && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 bg-background/80 backdrop-blur-xl">
+          <div className="fixed inset-5 z-[100] flex items-center justify-center px-3 py-3 bg-black/70 backdrop-blur-x0">
             <motion.div
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="bg-background w-full max-w-2xl h-full sm:h-auto sm:rounded-[3rem] border-x sm:border border-border shadow-2xl overflow-y-auto custom-scrollbar"
+              className="bg-background w-full max-w-[92vw] sm:max-w-[360px] mx-auto min-h-[calc(100vh-5rem)] max-h-[calc(100vh-3rem)] rounded-[2rem] border border-border shadow-2xl overflow-y-auto custom-scrollbar-thin custom-scrollbar-thumb-surface/50 custom-scrollbar-track-transparent"
             >
-              <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-8 py-6 border-b border-border flex items-center justify-between">
+              <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-5 py-4 border-b border-border flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-2xl font-black tracking-tight">Edit Profile</h2>
-                  <p className="text-[10px] font-black text-secondary uppercase tracking-widest">Update your personal information</p>
+                  <h2 className="text-lg font-black tracking-tight">Edit Profile</h2>
                 </div>
-                <button onClick={() => setIsEditing(false)} className="p-3 hover:bg-surface rounded-2xl transition-all">
-                  <X size={24} />
+                <button onClick={() => setIsEditing(false)} className="p-1.5 hover:bg-surface rounded-xl transition-all flex-shrink-0">
+                  <X size={18} />
                 </button>
               </div>
               
-              <div className="p-8 space-y-8">
+              <div className="p-5 space-y-4">
                 {/* Profile Picture Preview in Edit */}
-                <div className="flex flex-col items-center space-y-4">
+                <div className="flex flex-col items-center space-y-2">
                   <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-tr from-accent to-purple-500 rounded-[2.5rem] blur-[2px] opacity-70" />
-                    <div className="relative w-32 h-32 rounded-[2.5rem] bg-background border-4 border-background overflow-hidden shadow-xl">
+                    <div className="absolute -inset-0.5 bg-gradient-to-tr from-accent to-purple-500 rounded-2xl blur-[1px] opacity-60" />
+                    <div className="relative w-20 h-20 rounded-2xl bg-background border-3 border-background overflow-hidden shadow-lg">
                       <img 
                         src={profile.photoURL || `https://ui-avatars.com/api/?name=${profile.displayName}&background=random`} 
                         alt={profile.displayName} 
                         className="w-full h-full object-cover"
                       />
                       <label className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity">
-                        <Camera className="text-white" size={24} />
+                        <Camera className="text-white" size={14} />
                         <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
                       </label>
                     </div>
                     {uploading && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-[2.5rem] z-20">
-                        <Loader2 className="animate-spin text-white" size={24} />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl z-20">
+                        <Loader2 className="animate-spin text-white" size={14} />
                       </div>
                     )}
                   </div>
-                  <p className="text-[10px] font-black text-secondary uppercase tracking-widest">Tap to change photo</p>
+                  <p className="text-[8px] font-black text-secondary uppercase tracking-widest">Tap to change</p>
                 </div>
 
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Display Name</label>
+                <form onSubmit={handleUpdateProfile} className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-secondary uppercase tracking-[0.1em]">Display Name</label>
                     <input
                       type="text"
                       value={editForm.displayName}
                       onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                      className="w-full bg-surface border border-border rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                      className="w-full bg-surface border border-border rounded-lg px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
                       required
                       placeholder="Your name"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Bio (Markdown supported)</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-secondary uppercase tracking-[0.1em]">Bio</label>
                     <textarea
                       value={editForm.bio}
                       onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                      className="w-full bg-surface border border-border rounded-2xl p-6 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all resize-none h-40"
-                      placeholder="Tell the world about yourself..."
+                      className="w-full bg-surface border border-border rounded-lg p-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all resize-none h-20"
+                      placeholder="Tell about yourself..."
                     />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Location</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[8px] font-black text-secondary uppercase tracking-[0.1em]">Location</label>
                       <input
                         type="text"
                         value={editForm.location}
                         onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                        className="w-full bg-surface border border-border rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
-                        placeholder="e.g. San Francisco, CA"
+                        className="w-full bg-surface border border-border rounded-lg px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                        placeholder="City, Country"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Website</label>
+                    <div className="space-y-1.5">
+                      <label className="text-[8px] font-black text-secondary uppercase tracking-[0.1em]">Website</label>
                       <input
                         type="text"
                         value={editForm.website}
                         onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
-                        className="w-full bg-surface border border-border rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
-                        placeholder="e.g. nexus.social"
+                        className="w-full bg-surface border border-border rounded-lg px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                        placeholder="URL"
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-secondary uppercase tracking-[0.2em]">Status</label>
-                    <div className="flex flex-wrap gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-secondary uppercase tracking-[0.1em]">Status</label>
+                    <div className="flex gap-1.5">
                       {(['online', 'away', 'busy'] as const).map((status) => (
                         <button
                           key={status}
                           type="button"
                           onClick={() => setEditForm({ ...editForm, status })}
-                          className={`flex items-center space-x-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border text-[7px] font-bold transition-all ${
                             editForm.status === status
                               ? 'bg-accent/10 border-accent text-accent shadow-sm'
                               : 'bg-surface border-border text-secondary hover:border-accent/30'
                           }`}
                         >
-                          <div className={`w-2 h-2 rounded-full ${
+                          <div className={`w-1.5 h-1.5 rounded-full ${
                             status === 'online' ? 'bg-green-500' :
                             status === 'away' ? 'bg-yellow-500' : 'bg-red-500'
                           }`} />
@@ -815,20 +818,20 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  <div className="flex space-x-4 pt-6">
+                  <div className="flex gap-2 pt-2">
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
-                      className="flex-1 py-4 border border-border rounded-2xl text-[10px] font-black uppercase tracking-widest text-secondary hover:bg-surface transition-all"
+                      className="flex-1 py-2.5 border border-border rounded-lg text-[8px] font-black uppercase tracking-widest text-secondary hover:bg-surface transition-all"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="flex-1 py-4 bg-accent text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50 shadow-lg shadow-accent/20"
+                      className="flex-1 py-2.5 bg-accent text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50 shadow-lg shadow-accent/20"
                     >
-                      {loading ? 'Saving...' : 'Save Changes'}
+                      {loading ? 'Saving...' : 'Save'}
                     </button>
                   </div>
                 </form>

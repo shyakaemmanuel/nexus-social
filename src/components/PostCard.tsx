@@ -221,7 +221,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="bg-background border border-border rounded-[2.5rem] mb-8 overflow-hidden shadow-nexus transition-all duration-500 hover:shadow-nexus-lg"
+      className="bg-background border border-border rounded-[2.5rem] mb-8 overflow-hidden shadow-nexus transition-all duration-500 hover:shadow-nexus-lg w-full max-w-lg mx-auto"
     >
       {/* Header */}
       <div className="flex items-center justify-between p-5">

@@ -224,8 +224,9 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
-      <AnimatePresence mode="wait">
+    <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4">
+      <div className="w-full max-w-md flex flex-col">
+        <AnimatePresence mode="wait">
         {!storyType ? (
           // Story Type Selection - Full Screen
           <motion.div
@@ -696,6 +697,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 };

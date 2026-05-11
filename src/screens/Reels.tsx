@@ -891,7 +891,7 @@ export default function Reels() {
   }
 
   return (
-    <div className="h-screen w-full bg-black relative overflow-hidden">
+    <div className="h-screen w-full bg-black relative overflow-hidden flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 p-6 z-50 flex flex-col space-y-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
         <div className="flex items-center justify-between text-white">
@@ -984,13 +984,27 @@ export default function Reels() {
         </div>
       </div>
 
-      {/* Reels Container */}
-      <div 
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory no-scrollbar relative"
-        style={{ scrollBehavior: 'smooth' }}
-      >
+      {/* Centered Reel Container */}
+      <div className="flex-1 flex items-center justify-center px-4">
+        {/* Reel Viewport */}
+        <div 
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="relative rounded-3xl overflow-hidden bg-black"
+          style={{
+            width: '100%',
+            maxWidth: '420px',
+            height: '85vh',
+            maxHeight: '90vh',
+            scrollBehavior: 'smooth'
+          }}
+        >
+          <div 
+            className="h-full w-full overflow-y-scroll snap-y snap-mandatory no-scrollbar"
+            style={{
+              scrollBehavior: 'smooth'
+            }}
+          >
         {reels.length > 0 ? (
           <div style={{ height: `${reels.length * 100}%`, position: 'relative' }}>
             {/* Invisible snap points to maintain scroll behavior and snapping */}
@@ -1037,6 +1051,8 @@ export default function Reels() {
             </button>
           </div>
         )}
+          </div>
+        </div>
       </div>
 
       <UploadReelModal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} />

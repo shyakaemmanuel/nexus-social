@@ -24,6 +24,7 @@ const Reels = React.lazy(() => import('./screens/Reels'));
 const Login = React.lazy(() => import('./screens/Login'));
 const FollowList = React.lazy(() => import('./screens/FollowList'));
 const Settings = React.lazy(() => import('./screens/Settings'));
+const CreateStory = React.lazy(() => import('./screens/CreateStory'));
 
 const OfflineOverlay = () => {
   const { isOnline } = useAuth();
@@ -44,6 +45,9 @@ const BottomNav = () => {
   const { unreadCount: notificationCount } = useNotifications();
   const { chats } = useChat();
   const { user } = useAuth();
+
+  // Hide bottom nav on create story page
+  if (location.pathname === '/create-story') return null;
 
   // Calculate unread chat count
   const unreadChatCount = user ? chats.reduce((acc, chat) => acc + (chat.unreadCount?.[user.uid] || 0), 0) : 0;
@@ -151,6 +155,7 @@ export default function App() {
                     <Route path="/login" element={<Login />} />
                     <Route element={<ProtectedLayout />}>
                       <Route path="/" element={<Feed />} />
+                      <Route path="/create-story" element={<CreateStory />} />
                       <Route path="/search" element={<Search />} />
                       <Route path="/chats" element={<Chat />} />
                       <Route path="/chats/:chatId" element={<Chat />} />

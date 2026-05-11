@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Story, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { Plus, X, Play, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreateStoryModal } from './CreateStoryModal';
 import { Tooltip } from './Tooltip';
 
 interface StoryGroup {
@@ -17,10 +17,10 @@ interface StoryGroup {
 }
 
 export const StorySection: React.FC<{ onStoryClick: (stories: Story[]) => void }> = ({ onStoryClick }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -81,7 +81,7 @@ export const StorySection: React.FC<{ onStoryClick: (stories: Story[]) => void }
       <Tooltip content="Create Story" position="top" delay={300}>
         <div className="flex flex-col items-center space-y-1 flex-shrink-0">
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => navigate('/create-story')}
             className="relative group"
           >
             <div className="w-16 h-16 rounded-full border-2 border-border p-1 group-hover:border-accent transition-colors">
@@ -119,9 +119,6 @@ export const StorySection: React.FC<{ onStoryClick: (stories: Story[]) => void }
           </button>
         </Tooltip>
       ))}
-
-      {/* Create Story Modal */}
-      <CreateStoryModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
     </div>
   );
 };

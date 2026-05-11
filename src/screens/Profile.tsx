@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, orderBy, updateDoc, setDoc, deleteDoc, serverTimestamp, increment, addDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, updateDoc, setDoc, deleteDoc, serverTimestamp, increment, addDoc, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { uploadToCloudinary } from '../lib/cloudinary';
@@ -147,9 +147,9 @@ export default function Profile() {
       query: q,
       context: 'Profile-posts',
       onNext: (snapshot) => {
-        const postsData = snapshot.docs.map(doc => ({
+        const postsData = snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,
-          ...doc.data()
+          ...(doc.data() as Omit<Post, 'id'>)
         })) as Post[];
         setPosts(postsData);
       },
@@ -174,8 +174,8 @@ export default function Profile() {
         query: q,
         context: 'Profile-savedPosts',
         onNext: async (snapshot) => {
-          const postIds = snapshot.docs.map(doc => doc.data().postId);
-          const postPromises = postIds.map(id => getDoc(doc(db, 'posts', id)));
+          const postIds = snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data().postId as string);
+          const postPromises = postIds.map((id: string) => getDoc(doc(db, 'posts', id)));
           try {
             const postSnaps = await Promise.all(postPromises);
             const postsData = postSnaps
@@ -213,9 +213,9 @@ export default function Profile() {
         query: q,
         context: 'Profile-recordings',
         onNext: (snapshot) => {
-          const recordingsData = snapshot.docs.map(doc => ({
+          const recordingsData = snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
             id: doc.id,
-            ...doc.data()
+            ...(doc.data() as Omit<Recording, 'id'>)
           })) as Recording[];
           setRecordings(recordingsData);
           setLoadingRecordings(false);
@@ -557,7 +557,7 @@ export default function Profile() {
 
           <div className="space-y-6">
             <HighlightSection 
-              userId={targetUid} 
+              userId={targetUid ?? ''} 
               isOwnProfile={isOwnProfile} 
               onHighlightClick={(stories, title) => handleHighlightClick(stories, title)} 
             />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'motion/react';
-import { X, ChevronLeft, ChevronRight, MoreHorizontal, Eye, MessageCircle, Heart, Trash2, Send, ChevronDown, Edit3, Music } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, MoreHorizontal, Eye, MessageCircle, Heart, Trash2, Send, ChevronDown, Edit3, Music, Volume2, VolumeX } from 'lucide-react';
 import { Story, User, StoryReaction, StoryReply } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
@@ -45,6 +45,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, isOpen, onClo
   const [floatingEmojis, setFloatingEmojis] = useState<Array<{ id: string; emoji: string }>>([]);
   const [showAuthorMenu, setShowAuthorMenu] = useState(false);
   const [isReacting, setIsReacting] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const { user } = useAuth();
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const currentIndexRef = useRef(0);
@@ -131,6 +133,38 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, isOpen, onClo
     
     markAsViewed();
   }, [currentStory?.id, user?.uid]);
+
+  useEffect(() => {
+    if (!isOpen || !currentStory || !currentStory.musicUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      return;
+    }
+
+    console.log('Story musicUrl:', currentStory.musicUrl);
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+
+    audioEl.src = currentStory.musicUrl;
+    audioEl.loop = true;
+    audioEl.muted = isMusicMuted;
+
+    const playPromise = audioEl.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch((error) => {
+        console.warn('Story audio playback failed:', error);
+      });
+    }
+
+    return () => {
+      if (audioEl) {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      }
+    };
+  }, [currentStory?.musicUrl, isOpen, isMusicMuted]);
 
   // Progress bar timer
   useEffect(() => {
@@ -485,6 +519,17 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, isOpen, onClo
             />
           )}
 
+          {currentStory.musicUrl && (
+            <audio
+              ref={audioRef}
+              src={currentStory.musicUrl}
+              autoPlay
+              loop
+              muted={isMusicMuted}
+              className="hidden"
+            />
+          )}
+
           {/* Caption overlay */}
           {currentStory.caption && currentStory.mediaType !== 'text' && (
             <div className="absolute bottom-24 left-4 right-16 z-40">
@@ -499,6 +544,16 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, isOpen, onClo
             <div className="absolute bottom-24 left-4 z-40 flex items-center space-x-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
               <Music size={12} className="text-white/70" />
               <span className="text-[11px] text-white/70 truncate max-w-[120px]">{currentStory.musicTitle}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMusicMuted((prev) => !prev);
+                }}
+                className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                title={isMusicMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMusicMuted ? <VolumeX size={14} className="text-white/80" /> : <Volume2 size={14} className="text-white/80" />}
+              </button>
             </div>
           )}
         </div>

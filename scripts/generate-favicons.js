@@ -32,29 +32,52 @@ async function generateFavicons() {
   try {
     const svgBuffer = readFileSync(SVG_PATH);
 
-    // Generate PNG files
+    // Generate PNG files with rounded corners
     for (const [filename, size] of Object.entries(SIZES)) {
       const outputPath = join(PUBLIC_DIR, filename);
+      
+      // Create a rounded rectangle mask
+      const radius = Math.round(size * 0.15); // 15% border radius
+      const roundedRect = Buffer.from(`
+        <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="white"/>
+        </svg>
+      `);
       
       await sharp(svgBuffer)
         .resize(size, size, {
           fit: 'contain',
           background: { r: 99, g: 102, b: 241, alpha: 1 } // #6366f1 background
         })
+        .composite([{
+          input: await sharp(roundedRect).toBuffer(),
+          blend: 'dest-in'
+        }])
         .png()
         .toFile(outputPath);
 
       console.log(`✅ ${filename} (${size}x${size})`);
     }
 
-    // Generate ICO file (contains multiple sizes)
+    // Generate ICO file (contains multiple sizes) with rounded corners
     const icoSizes = [16, 32, 48];
     const icoBuffers = await Promise.all(
-      icoSizes.map(size =>
-        sharp(svgBuffer)
+      icoSizes.map(async (size) => {
+        const radius = Math.round(size * 0.15); // 15% border radius
+        const roundedRect = Buffer.from(`
+          <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="white"/>
+          </svg>
+        `);
+        
+        return await sharp(svgBuffer)
           .resize(size, size, { fit: 'contain' })
-          .toBuffer()
-      )
+          .composite([{
+            input: await sharp(roundedRect).toBuffer(),
+            blend: 'dest-in'
+          }])
+          .toBuffer();
+      })
     );
 
     // Simple ICO format (just use the 32x32 as favicon.ico for now)

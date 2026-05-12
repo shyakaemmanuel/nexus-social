@@ -21,22 +21,46 @@ async function generateFavicons() {
     for (const [filename, size] of Object.entries(FAVICON_SIZES)) {
       const outputPath = join(PUBLIC_DIR, filename);
       
+      // Create a rounded rectangle mask
+      const radius = Math.round(size * 0.15); // 15% border radius
+      const roundedRect = Buffer.from(`
+        <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="white"/>
+        </svg>
+      `);
+      
       await sharp(SOURCE_IMAGE)
         .resize(size, size, {
           fit: 'contain',
           background: { r: 255, g: 255, b: 255, alpha: 1 }
         })
+        .composite([{
+          input: await sharp(roundedRect).toBuffer(),
+          blend: 'dest-in'
+        }])
         .toFile(outputPath);
       
       console.log(`✅ ${filename} (${size}x${size})`);
     }
 
-    // Create favicon.ico from 32x32
+    // Create favicon.ico from 32x32 with rounded corners
+    const size = 32;
+    const radius = Math.round(size * 0.15); // 15% border radius
+    const roundedRect = Buffer.from(`
+      <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="white"/>
+      </svg>
+    `);
+
     const icon32 = await sharp(SOURCE_IMAGE)
-      .resize(32, 32, {
+      .resize(size, size, {
         fit: 'contain',
         background: { r: 255, g: 255, b: 255, alpha: 1 }
       })
+      .composite([{
+        input: await sharp(roundedRect).toBuffer(),
+        blend: 'dest-in'
+      }])
       .png()
       .toBuffer();
 

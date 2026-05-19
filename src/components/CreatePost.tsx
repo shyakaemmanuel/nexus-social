@@ -157,17 +157,17 @@ export const CreatePost = () => {
   return (
     <>
       {MediaEditorComponent}
-      <div className="bg-background border border-border rounded-[2rem] p-4 mb-8 shadow-nexus transition-all duration-300 hover:shadow-nexus-lg">
+      <div className="nexus-card mb-4 p-4 transition-all duration-300 hover:shadow-nexus-lg">
         {!isExpanded ? (
           <div 
             onClick={() => setIsExpanded(true)}
-            className="flex items-center space-x-4 cursor-pointer group"
+            className="group flex cursor-pointer items-center gap-3"
           >
             <div className="relative">
               <img
                 src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName}&background=random`}
                 alt="Profile"
-                className="w-10 h-10 rounded-full object-cover border border-border group-hover:scale-105 transition-transform"
+                className="h-10 w-10 rounded-full border border-border object-cover transition-transform group-hover:scale-105"
               />
               {author && (
                 <UserStatusDot 
@@ -177,10 +177,10 @@ export const CreatePost = () => {
                 />
               )}
             </div>
-            <div className="flex-1 bg-surface border border-border rounded-full py-2.5 px-5 text-secondary text-sm font-medium group-hover:border-accent/30 transition-colors">
+            <div className="min-w-0 flex-1 rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-medium text-secondary transition-colors group-hover:border-accent/30">
               What's on your mind, {user?.displayName?.split(' ')[0]}?
             </div>
-            <div className="p-2 bg-accent/10 text-accent rounded-full group-hover:bg-accent group-hover:text-white transition-all">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-accent/10 text-accent transition-all group-hover:bg-accent group-hover:text-white">
               <Plus size={20} />
             </div>
           </div>
@@ -225,7 +225,7 @@ export const CreatePost = () => {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 autoFocus
-                className="w-full bg-surface border border-border rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all resize-none min-h-[120px]"
+                className="min-h-[112px] w-full resize-none rounded-2xl border border-border bg-surface p-4 text-sm transition-all placeholder:text-secondary/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
 
               <AnimatePresence>
@@ -314,7 +314,7 @@ export const CreatePost = () => {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+                    className={`relative rounded-2xl border border-dashed p-8 text-center transition-all ${
                       isDragging
                         ? 'border-accent bg-accent/5'
                         : 'border-border hover:border-accent/50 hover:bg-accent/5'
@@ -332,8 +332,8 @@ export const CreatePost = () => {
               </AnimatePresence>
 
               <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center space-x-2">
-                  <label className="flex items-center space-x-2 text-secondary hover:text-accent cursor-pointer transition-all p-2 hover:bg-accent/5 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-xl p-2 text-secondary transition-all hover:bg-accent/5 hover:text-accent">
                     <ImageIcon size={20} />
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Media</span>
                     <input
@@ -347,7 +347,7 @@ export const CreatePost = () => {
                   <button
                     type="button"
                     onClick={() => setShowTagInput(!showTagInput)}
-                    className={`flex items-center space-x-2 transition-all p-2 rounded-xl ${showTagInput ? 'bg-accent/10 text-accent' : 'text-secondary hover:text-accent hover:bg-accent/5'}`}
+                    className={`flex items-center gap-2 rounded-xl p-2 transition-all ${showTagInput ? 'bg-accent/10 text-accent' : 'text-secondary hover:bg-accent/5 hover:text-accent'}`}
                   >
                     <Tag size={20} />
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Tags</span>
@@ -356,7 +356,7 @@ export const CreatePost = () => {
                 <button
                   type="submit"
                   disabled={loading || (!content.trim() && !media && !editedMedia) || !!fileError}
-                  className="bg-accent text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-accent/90 transition-all disabled:opacity-50 flex items-center space-x-2 shadow-lg shadow-accent/20 active:scale-95"
+                  className="nexus-primary-button px-6 shadow-lg shadow-accent/15"
                 >
                   {loading ? (
                     <>

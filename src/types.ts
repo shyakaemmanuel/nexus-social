@@ -107,7 +107,21 @@ export interface Group {
   chatId?: string;
   membersCount: number;
   photoURL?: string;
+  coverURL?: string;
+  privacy?: 'public' | 'private' | 'invite';
+  category?: string;
+  tags?: string[];
+  rules?: string[];
+  isPrivate?: boolean;
   createdAt: Timestamp;
+}
+
+export interface GroupMember {
+  uid: string;
+  displayName: string;
+  photoURL?: string;
+  role?: 'admin' | 'mod' | 'member';
+  joinedAt?: Timestamp;
 }
 
 export interface Story {

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, onSnapshot, doc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, getDoc, orderBy, getDocs, where, documentId } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Search, UserPlus, UserMinus, Loader2, Users } from 'lucide-react';
+import { ChevronLeft, Search, Loader2, Users } from 'lucide-react';
 import { UserStatusDot } from '../components/UserStatusDot';
+import FollowButton from '../components/FollowButton';
+import { useAuth } from '../context/AuthContext';
 
 interface FollowListProps {
   type: 'followers' | 'following';
@@ -13,6 +15,7 @@ interface FollowListProps {
 
 export default function FollowList({ type }: FollowListProps) {
   const { uid } = useParams();
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,13 +39,24 @@ export default function FollowList({ type }: FollowListProps) {
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const userIds = snapshot.docs.map(doc => doc.id);
-      const userPromises = userIds.map(id => getDoc(doc(db, 'users', id)));
       
       try {
-        const userSnaps = await Promise.all(userPromises);
-        const usersData = userSnaps
-          .filter(snap => snap.exists())
-          .map(snap => ({ uid: snap.id, ...snap.data() } as User));
+        const chunks = [];
+        for (let i = 0; i < userIds.length; i += 10) {
+          chunks.push(userIds.slice(i, i + 10));
+        }
+
+        const userSnaps = await Promise.all(
+          chunks.map((chunk) => getDocs(query(collection(db, 'users'), where(documentId(), 'in', chunk))))
+        );
+        const byId = new Map(
+          userSnaps
+            .flatMap((snap) => snap.docs)
+            .map((snap) => [snap.id, { uid: snap.id, ...snap.data() } as User])
+        );
+        const usersData = userIds
+          .map((id) => byId.get(id))
+          .filter((user): user is User => Boolean(user));
         
         setUsers(usersData);
         setLoading(false);
@@ -134,9 +148,21 @@ export default function FollowList({ type }: FollowListProps) {
                     </p>
                   </div>
                 </div>
-                <button className="p-2 text-secondary hover:text-accent transition-colors">
-                  <ChevronLeft size={18} className="rotate-180" />
-                </button>
+                <div className="p-2 text-secondary transition-colors">
+                  {currentUser?.uid && currentUser.uid !== user.uid ? (
+                    <div onClick={(event) => event.stopPropagation()}>
+                      <FollowButton
+                        targetUserId={user.uid}
+                        targetUserName={user.displayName}
+                        isPrivate={user.isPrivate}
+                        size="sm"
+                        variant="outline"
+                      />
+                    </div>
+                  ) : (
+                    <ChevronLeft size={18} className="rotate-180" />
+                  )}
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>

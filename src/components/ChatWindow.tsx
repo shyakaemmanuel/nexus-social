@@ -4,8 +4,7 @@ import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../lib/firebase';
+import { uploadMediaToCloudinary } from '../lib/cloudinary';
 import { Message, Chat } from '../types';
 import { Send, ArrowLeft, Paperclip, Image, Smile, MoreVertical, Phone, Video, X, Check, CheckCheck, Loader2, User, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -159,17 +158,15 @@ export default function ChatWindow() {
     clearError?.();
     
     try {
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, `chat_images/${activeChat.id}/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      const downloadURL = await uploadMediaToCloudinary(file, `chats/${activeChat.id}`);
       
       // Send as image message
       await sendMessage('', downloadURL, 'image');
       setShouldScrollToBottom(true);
     } catch (err) {
       console.error('Failed to upload image:', err);
-      alert('Failed to upload image. Please try again.');
+      const message = err instanceof Error ? err.message : 'Please try again.';
+      alert(`Failed to upload image. ${message}`);
     } finally {
       setImageUploading(false);
       if (fileInputRef.current) {

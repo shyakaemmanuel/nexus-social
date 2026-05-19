@@ -76,22 +76,22 @@ export const StorySection: React.FC<{ onStoryClick: (stories: Story[]) => void }
   }, [user]);
 
   return (
-    <div className="flex items-center space-x-4 p-4 overflow-x-auto custom-scrollbar bg-background border-b border-border sticky top-0 z-30">
+    <div className="mb-3 flex items-center gap-3 overflow-x-auto border-b border-border/70 bg-background px-1 pb-3 pt-1 no-scrollbar">
       {/* Create Story */}
       <Tooltip content="Create Story" position="top" delay={300}>
-        <div className="flex flex-col items-center space-y-1 flex-shrink-0">
+        <div className="flex flex-shrink-0 flex-col items-center gap-1">
           <button
             onClick={() => navigate('/create-story')}
             className="relative group"
           >
-            <div className="w-16 h-16 rounded-full border-2 border-border p-1 group-hover:border-accent transition-colors">
+            <div className="h-16 w-16 rounded-full border border-border bg-surface p-1 transition-colors group-hover:border-accent">
               <img
                 src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName}&background=random`}
                 alt="My Story"
                 className="w-full h-full rounded-full object-cover"
               />
             </div>
-            <div className="absolute bottom-0 right-0 bg-accent text-white rounded-full p-1 border-2 border-background group-hover:scale-110 transition-transform">
+            <div className="absolute bottom-0 right-0 rounded-full border-2 border-background bg-accent p-1 text-white transition-transform group-hover:scale-110">
               <Plus size={12} />
             </div>
           </button>
@@ -104,13 +104,13 @@ export const StorySection: React.FC<{ onStoryClick: (stories: Story[]) => void }
         <Tooltip key={group.userId} content={`${group.userName.split(' ')[0]}'s Story`} position="top" delay={300}>
           <button
             onClick={() => onStoryClick(group.stories)}
-            className="flex flex-col items-center space-y-1 flex-shrink-0"
+            className="flex flex-shrink-0 flex-col items-center gap-1"
           >
-            <div className={`w-16 h-16 rounded-full p-1 border-2 ${group.hasUnseen ? 'border-accent' : 'border-border'} transition-colors`}>
+            <div className={`h-16 w-16 rounded-full p-1 ${group.hasUnseen ? 'bg-gradient-to-tr from-accent via-fuchsia-500 to-amber-400' : 'border border-border bg-surface'} transition-colors`}>
               <img
                 src={group.userPhoto || `https://ui-avatars.com/api/?name=${group.userName}&background=random`}
                 alt={group.userName}
-                className="w-full h-full rounded-full object-cover"
+                className="h-full w-full rounded-full border-2 border-background object-cover"
               />
             </div>
             <span className="text-[10px] font-medium text-primary truncate w-16 text-center">

@@ -4,7 +4,7 @@ import { UserPlus, UserMinus, Clock, UserCheck, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { followUser, unfollowUser, acceptFollowRequest, rejectFollowRequest } from '../lib/follow';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface FollowButtonProps {
@@ -38,50 +38,50 @@ export default function FollowButton({
   useEffect(() => {
     if (!user || user.uid === targetUserId) return;
 
-    // Check if following
-    const followingRef = doc(db, 'users', user.uid, 'following', targetUserId);
-    const unsubscribeFollowing = onSnapshot(followingRef, (snap) => {
-      if (snap.exists()) {
+    let following = false;
+    let requested = false;
+    let incomingRequest = false;
+
+    const syncStatus = () => {
+      if (following) {
         setStatus('following');
         onFollowChange?.(true);
+      } else if (incomingRequest) {
+        setStatus('incoming_request');
+        setRequestId(targetUserId);
+        onFollowChange?.(false);
+      } else if (requested) {
+        setStatus('requested');
+        onFollowChange?.(false);
       } else {
-        // Check if follow request exists
-        checkFollowRequest();
+        setStatus('none');
+        setRequestId(null);
+        onFollowChange?.(false);
       }
-    });
-
-    // Check for incoming follow request
-    const checkFollowRequest = () => {
-      const requestRef = doc(db, 'users', targetUserId, 'followRequests', user.uid);
-      onSnapshot(requestRef, (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.status === 'pending') {
-            setStatus('requested');
-            onFollowChange?.(false);
-          }
-        } else {
-          setStatus('none');
-          onFollowChange?.(false);
-        }
-      });
     };
 
-    // Check for outgoing follow request to this user
-    const outgoingRequestRef = doc(db, 'users', user.uid, 'followRequests', targetUserId);
+    const followingRef = doc(db, 'users', user.uid, 'following', targetUserId);
+    const unsubscribeFollowing = onSnapshot(followingRef, (snap) => {
+      following = snap.exists();
+      syncStatus();
+    });
+
+    const outgoingRequestRef = doc(db, 'users', targetUserId, 'followRequests', user.uid);
     const unsubscribeOutgoing = onSnapshot(outgoingRequestRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.status === 'pending') {
-          setStatus('incoming_request');
-          setRequestId(snap.id);
-        }
-      }
+      requested = snap.exists() && snap.data().status === 'pending';
+      syncStatus();
+    });
+
+    const incomingRequestRef = doc(db, 'users', user.uid, 'followRequests', targetUserId);
+    const unsubscribeIncoming = onSnapshot(incomingRequestRef, (snap) => {
+      incomingRequest = snap.exists() && snap.data().status === 'pending';
+      syncStatus();
     });
 
     return () => {
       unsubscribeFollowing();
       unsubscribeOutgoing();
+      unsubscribeIncoming();
     };
   }, [user, targetUserId, onFollowChange]);
 
@@ -90,6 +90,8 @@ export default function FollowButton({
     setLoading(true);
 
     try {
+      setStatus(isPrivate ? 'requested' : 'following');
+      onFollowChange?.(!isPrivate);
       await followUser(user.uid, targetUserId);
       
       // Send notification if private account
@@ -111,6 +113,8 @@ export default function FollowButton({
         );
       }
     } catch (error) {
+      setStatus('none');
+      onFollowChange?.(false);
       console.error('Error following user:', error);
     } finally {
       setLoading(false);
@@ -122,8 +126,12 @@ export default function FollowButton({
     setLoading(true);
 
     try {
+      setStatus('none');
+      onFollowChange?.(false);
       await unfollowUser(user.uid, targetUserId);
     } catch (error) {
+      setStatus('following');
+      onFollowChange?.(true);
       console.error('Error unfollowing user:', error);
     } finally {
       setLoading(false);

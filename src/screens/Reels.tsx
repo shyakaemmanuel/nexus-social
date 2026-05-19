@@ -13,6 +13,7 @@ import { uploadVideoToCloudinary } from '../lib/cloudinary';
 import { CommentsModal } from '../components/CommentsModal';
 import { UserStatusDot } from '../components/UserStatusDot';
 import { NotificationCenter } from '../components/NotificationCenter';
+import { followUser, unfollowUser } from '../lib/follow';
 
 const REEL_CATEGORIES = [
   'Entertainment',
@@ -42,6 +43,8 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastTap = useRef<number>(0);
   const navigate = useNavigate();
+  const authorListenerId = `ReelCard-author-${reel.id}`;
+  const followingListenerId = `ReelCard-following-${reel.id}-${currentUser?.uid || 'guest'}`;
 
   useEffect(() => {
     setLikesCount(reel.likesCount);
@@ -50,12 +53,12 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
   useEffect(() => {
     // Fetch author for status
     addListener({
-      id: 'ReelCard-author',
+      id: authorListenerId,
       query: doc(db, 'users', reel.authorUid),
-      context: 'ReelCard-author',
+      context: authorListenerId,
       onNext: (docSnap) => {
         if (docSnap.exists()) {
-          setAuthor(docSnap.data() as User);
+          setAuthor({ uid: docSnap.id, ...docSnap.data() } as User);
         }
       }
     });
@@ -63,9 +66,9 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
     // Check if following
     if (currentUser && currentUser.uid !== reel.authorUid) {
       addListener({
-        id: 'ReelCard-following',
+        id: followingListenerId,
         query: doc(db, 'users', currentUser.uid, 'following', reel.authorUid),
-        context: 'ReelCard-following',
+        context: followingListenerId,
         onNext: (snap) => {
           setIsFollowing(snap.exists());
         }
@@ -73,10 +76,10 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
     }
 
     return () => {
-      removeListener('ReelCard-author');
-      removeListener('ReelCard-following');
+      removeListener(authorListenerId);
+      removeListener(followingListenerId);
     };
-  }, [reel.authorUid, currentUser, addListener, removeListener]);
+  }, [reel.id, reel.authorUid, currentUser?.uid, addListener, removeListener, authorListenerId, followingListenerId]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -88,31 +91,25 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
     e.stopPropagation();
     if (!currentUser || !author || followLoading) return;
     setFollowLoading(true);
-
-    const followingRef = doc(db, 'users', currentUser.uid, 'following', author.uid);
-    const followerRef = doc(db, 'users', author.uid, 'followers', currentUser.uid);
+    const nextFollowing = !isFollowing;
+    setIsFollowing(nextFollowing);
 
     try {
-      if (isFollowing) {
-        await deleteDoc(followingRef);
-        await deleteDoc(followerRef);
-        await updateDoc(doc(db, 'users', currentUser.uid), { followingCount: increment(-1) });
-        await updateDoc(doc(db, 'users', author.uid), { followersCount: increment(-1) });
+      if (!nextFollowing) {
+        await unfollowUser(currentUser.uid, author.uid);
       } else {
-        await setDoc(followingRef, { uid: author.uid, createdAt: serverTimestamp() });
-        await setDoc(followerRef, { uid: currentUser.uid, createdAt: serverTimestamp() });
-        await updateDoc(doc(db, 'users', currentUser.uid), { followingCount: increment(1) });
-        await updateDoc(doc(db, 'users', author.uid), { followersCount: increment(1) });
+        await followUser(currentUser.uid, author.uid);
 
         await sendNotification(
           author.uid,
-          'follow',
-          'New Follower',
-          `${currentUser.displayName} started following you`,
+          author.isPrivate ? 'follow_request' : 'follow',
+          author.isPrivate ? 'New Follow Request' : 'New Follower',
+          author.isPrivate ? `${currentUser.displayName} wants to follow you` : `${currentUser.displayName} started following you`,
           { fromUid: currentUser.uid }
         );
       }
     } catch (error) {
+      setIsFollowing(!nextFollowing);
       console.error('Error toggling follow:', error);
     } finally {
       setFollowLoading(false);
@@ -196,7 +193,7 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
     lastTap.current = now;
   };
 
-  return (
+return (
     <div className="relative h-full w-full bg-black flex items-center justify-center snap-start overflow-hidden group">
       <video
         ref={videoRef}
@@ -205,22 +202,30 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
         loop
         playsInline
         onClick={handleVideoClick}
+        poster={reel.videoUrl ? undefined : undefined}
       />
 
-      {/* Immersive Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/90 pointer-events-none" />
+      {/* Modern gradient overlay with smooth vignette */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 pointer-events-none" />
+      
+      {/* Top fade overlay */}
+      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
 
-      {/* Mute Toggle Overlay */}
+      {/* Mute Toggle Indicator */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <AnimatePresence>
           {isMuted && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              className="p-4 bg-black/40 backdrop-blur-md rounded-full"
+              initial={{ opacity: 0, scale: 0.5, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.5, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className="px-5 py-3 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl"
             >
-              <VolumeX size={32} className="text-white" />
+              <div className="flex items-center gap-3">
+                <VolumeX size={24} className="text-white" />
+                <span className="text-white font-semibold text-sm">Muted</span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -231,136 +236,165 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
         {showHeartAnim && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1.5, opacity: 1 }}
+            animate={{ scale: 1.2, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
             className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
           >
-            <Heart size={120} fill="white" className="text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]" />
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, -5, 5, 0]
+              }}
+              transition={{ duration: 0.6, repeat: 0 }}
+            >
+              <Heart size={140} fill="white" className="text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.6)]" />
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Top Info */}
-      <div className="absolute top-8 left-6 right-6 flex items-center justify-between z-20">
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={() => navigate(`/profile/${reel.authorUid}`)}
-            className="flex items-center space-x-3 group/author pointer-events-auto"
-          >
-            <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-tr from-accent to-purple-500 rounded-xl blur-[2px] opacity-70 group-hover/author:opacity-100 transition-opacity" />
-              <img 
-                src={reel.authorPhoto || `https://ui-avatars.com/api/?name=${reel.authorName}&background=random`} 
-                alt={reel.authorName} 
-                className="relative w-10 h-10 rounded-full object-cover border-2 border-white/20"
-              />
-              {author && (
-                <UserStatusDot 
-                  user={author} 
-                  className="absolute bottom-0 right-0 w-3 h-3 border-2 border-black" 
-                  size="sm"
-                />
-              )}
-            </div>
-            <div className="flex flex-col items-start">
-              <div className="flex items-center space-x-2">
-                <span className="text-white font-black text-sm tracking-tight drop-shadow-md">{reel.authorName}</span>
-                {currentUser && currentUser.uid !== reel.authorUid && (
-                  <button
-                    onClick={handleToggleFollow}
-                    disabled={followLoading}
-                    className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                      isFollowing 
-                        ? 'bg-white/10 text-white border border-white/20' 
-                        : 'bg-accent text-white shadow-lg shadow-accent/20'
-                    }`}
-                  >
-                    {followLoading ? <Loader2 size={10} className="animate-spin" /> : isFollowing ? 'Following' : 'Follow'}
-                  </button>
-                )}
-              </div>
-              <span className="text-white/60 text-[10px] font-black uppercase tracking-widest drop-shadow-md">Original Audio</span>
-            </div>
-          </button>
-        </div>
+      {/* Top Info - Clean minimal design */}
+      <div className="absolute left-4 right-4 top-32 z-20 flex items-center justify-between">
         <button 
-          onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-          className="p-2.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-white hover:bg-white/20 transition-all pointer-events-auto"
+          onClick={() => navigate(`/profile/${reel.authorUid}`)}
+          className="group/author pointer-events-auto flex items-center gap-3"
         >
-          {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-        </button>
-        <button className="p-2.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-white hover:bg-white/20 transition-all pointer-events-auto">
-          <MoreVertical size={20} />
-        </button>
-      </div>
-
-      {/* Right Side Actions */}
-      <div className="absolute right-6 bottom-32 flex flex-col items-center space-y-6 z-20 pointer-events-auto">
-        <div className="flex flex-col items-center space-y-1">
-          <motion.button
-            whileTap={{ scale: 0.8 }}
-            onClick={handleLike}
-            className={`p-4 rounded-2xl backdrop-blur-md border transition-all ${
-              isLiked 
-                ? 'bg-accent/20 border-accent text-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)]' 
-                : 'bg-white/10 border-white/10 text-white hover:bg-white/20'
-            }`}
-          >
-            <Heart size={28} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={2.5} />
-          </motion.button>
-          <span className="text-white text-[10px] font-black uppercase tracking-widest drop-shadow-md">{likesCount}</span>
-        </div>
-
-        <div className="flex flex-col items-center space-y-1">
-          <motion.button
-            whileTap={{ scale: 0.8 }}
-            onClick={() => setShowComments(true)}
-            className="p-4 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-white hover:bg-white/20 transition-all"
-          >
-            <MessageCircle size={28} strokeWidth={2.5} />
-          </motion.button>
-          <span className="text-white text-[10px] font-black uppercase tracking-widest drop-shadow-md">{reel.commentsCount}</span>
-        </div>
-
-        <div className="flex flex-col items-center space-y-1">
-          <motion.button
-            whileTap={{ scale: 0.8 }}
-            onClick={() => setShowShare(true)}
-            className="p-4 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-white hover:bg-white/20 transition-all"
-          >
-            <Share2 size={28} strokeWidth={2.5} />
-          </motion.button>
-          <span className="text-white text-[10px] font-black uppercase tracking-widest drop-shadow-md">{reel.sharesCount || 0}</span>
-        </div>
-
-        <div className="w-12 h-12 rounded-full border-2 border-white/20 overflow-hidden animate-spin-slow shadow-xl">
-          <img src={reel.authorPhoto || `https://ui-avatars.com/api/?name=${reel.authorName}&background=random`} className="w-full h-full object-cover" alt="music" />
-        </div>
-      </div>
-
-      {/* Bottom Info */}
-      <div className="absolute bottom-10 left-6 right-20 z-20 pointer-events-none">
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2 pointer-events-auto">
-            {reel.category && (
-              <span className="px-3 py-1 bg-accent text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-accent/20">
-                {reel.category}
-              </span>
+          <div className="relative">
+            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 opacity-80 group-hover/author:opacity-100 transition-opacity" />
+            <img 
+              src={reel.authorPhoto || `https://ui-avatars.com/api/?name=${reel.authorName}&background=random`} 
+              alt={reel.authorName} 
+              className="relative h-10 w-10 rounded-full border-2 border-black/30 object-cover"
+            />
+            {author && (
+              <UserStatusDot 
+                user={author} 
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 border-2 border-black" 
+                size="sm"
+              />
             )}
           </div>
-          <p className="text-white text-sm font-medium leading-relaxed line-clamp-2 drop-shadow-md pointer-events-auto">
-            {reel.caption}
-          </p>
-          <div className="flex items-center space-x-2 text-white/80">
-            <Music size={14} className="animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest truncate">
-              {reel.authorName} • Original Audio
-            </span>
+          <div className="flex flex-col items-start">
+            <div className="flex items-center gap-2">
+              <span className="text-white font-semibold text-sm">{reel.authorName}</span>
+              {currentUser && currentUser.uid !== reel.authorUid && (
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleToggleFollow}
+                  disabled={followLoading}
+                  className={`px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all ${
+                    isFollowing 
+                      ? 'bg-white/10 text-white/70' 
+                      : 'bg-white text-black'
+                  }`}
+                >
+                  {followLoading ? <Loader2 size={10} className="animate-spin" /> : isFollowing ? 'Following' : 'Follow'}
+                </motion.button>
+              )}
+            </div>
+            <span className="text-white/40 text-[11px]">Original Sound</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Right Side Actions - Compact & Minimal */}
+      <div className="pointer-events-auto absolute right-2 bottom-24 z-20 flex flex-col items-center gap-4">
+        {/* Like Button */}
+        <motion.div whileTap={{ scale: 0.85 }} className="flex flex-col items-center gap-1">
+          <button
+            onClick={handleLike}
+            className={`h-11 w-11 rounded-full flex items-center justify-center transition-all ${
+              isLiked 
+                ? 'text-pink-500' 
+                : 'text-white hover:bg-white/10'
+            }`}
+          >
+            <Heart size={26} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={2} />
+          </button>
+          <span className="text-white text-[11px] font-medium tabular-nums drop-shadow-md">
+            {likesCount >= 1000 ? `${(likesCount/1000).toFixed(1)}K` : likesCount}
+          </span>
+        </motion.div>
+
+        {/* Comment Button */}
+        <motion.div whileTap={{ scale: 0.85 }} className="flex flex-col items-center gap-1">
+          <button
+            onClick={() => setShowComments(true)}
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-all"
+          >
+            <MessageCircle size={26} strokeWidth={2} />
+          </button>
+          <span className="text-white text-[11px] font-medium tabular-nums drop-shadow-md">
+            {reel.commentsCount >= 1000 ? `${(reel.commentsCount/1000).toFixed(1)}K` : reel.commentsCount}
+          </span>
+        </motion.div>
+
+        {/* Share Button */}
+        <motion.div whileTap={{ scale: 0.85 }} className="flex flex-col items-center gap-1">
+          <button
+            onClick={() => setShowShare(true)}
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-all"
+          >
+            <Share2 size={26} strokeWidth={2} />
+          </button>
+          <span className="text-white text-[11px] font-medium tabular-nums drop-shadow-md">
+            {reel.sharesCount >= 1000 ? `${((reel.sharesCount || 0)/1000).toFixed(1)}K` : (reel.sharesCount || 0)}
+          </span>
+        </motion.div>
+
+        {/* Small Music Disc */}
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          className="w-10 h-10 rounded-full overflow-hidden mt-1"
+        >
+          {reel.authorPhoto ? (
+            <img src={reel.authorPhoto} className="w-full h-full object-cover" alt="" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Music size={16} className="text-white/80" />
+            </div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Bottom Gradient Overlay for Readability */}
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+      {/* Bottom Info - Caption + Audio */}
+      <div className="pointer-events-none absolute left-0 right-14 bottom-20 z-20">
+        <div className="px-4 space-y-2.5">
+          {/* Username + Caption Group */}
+          <div className="pointer-events-auto">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-white font-bold text-[15px]">{reel.authorName}</span>
+              {reel.category && (
+                <span className="px-2 py-0.5 bg-white/15 backdrop-blur-sm rounded text-[10px] font-semibold text-white/90">
+                  {reel.category}
+                </span>
+              )}
+            </div>
+            {reel.caption && (
+              <p className="text-white/90 text-[14px] font-normal leading-snug line-clamp-2">
+                {reel.caption}
+              </p>
+            )}
+          </div>
+          
+          {/* Audio Info */}
+          <div className="flex items-center gap-2 text-white/70 pointer-events-auto">
+            <div className="flex items-center gap-1.5">
+              <Music size={13} className="animate-pulse" />
+              <span className="text-[12px] font-medium truncate max-w-[200px]">
+                {reel.authorName} · Original Sound
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <CommentsModal 
+      <CommentsModal
         itemId={reel.id} 
         itemType="reels"
         authorUid={reel.authorUid}
@@ -379,6 +413,7 @@ const ReelCard = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
 
 const ShareModal = ({ reel, isOpen, onClose }: { reel: Reel, isOpen: boolean, onClose: () => void }) => {
   const { user: currentUser } = useAuth();
+  const { addListener, removeListener } = useFirestoreListener();
   const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -409,7 +444,7 @@ const ShareModal = ({ reel, isOpen, onClose }: { reel: Reel, isOpen: boolean, on
     });
 
     return () => removeListener('Reels-shareChats');
-  }, [isOpen, currentUser]);
+  }, [isOpen, currentUser, addListener, removeListener]);
 
   const handleExternalShare = async () => {
     const shareData = {
@@ -486,7 +521,7 @@ const ShareModal = ({ reel, isOpen, onClose }: { reel: Reel, isOpen: boolean, on
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            className="relative bg-background w-full max-w-lg h-[60vh] sm:h-[500px] rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+            className="relative flex h-[60vh] w-full max-w-[420px] flex-col overflow-hidden rounded-t-3xl bg-background shadow-2xl sm:h-[500px] sm:rounded-3xl"
           >
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-bold">Share Reel</h3>
@@ -884,37 +919,58 @@ export default function Reels() {
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-black">
-        <Loader2 size={48} className="text-accent animate-spin" />
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-black">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          className="w-12 h-12 rounded-full border-2 border-white/20 border-t-purple-500"
+        />
+        <p className="text-white/50 text-sm mt-4 font-medium">Loading reels...</p>
       </div>
     );
   }
 
-  return (
-    <div className="h-screen w-full bg-black relative overflow-hidden">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 p-6 z-50 flex flex-col space-y-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-        <div className="flex items-center justify-between text-white">
-          <h1 className="text-2xl font-bold tracking-tight">Reels</h1>
-          <div className="flex items-center space-x-2">
-            <NotificationCenter variant="minimal" />
+return (
+    <div className="mx-auto h-screen w-full max-w-[400px] overflow-hidden bg-black relative shadow-2xl ring-1 ring-white/10">
+      {/* Modern Header - floating with blur */}
+      <div className="absolute left-0 right-0 top-0 z-50 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-3 bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex items-center justify-between">
+          {/* Logo/Title */}
+          <div className="flex items-center gap-2">
+            <h1 className="text-[22px] font-bold tracking-tight text-white">Reels</h1>
+          </div>
+          
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setShowUploadModal(true)}
+              className="h-9 w-9 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all"
+            >
+              <Plus size={20} />
+            </motion.button>
+            
             <div className="relative">
-              <button 
+              <motion.button
+                whileTap={{ scale: 0.92 }}
                 onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className={`p-2 rounded-full backdrop-blur-md transition-all ${
-                  selectedCategory ? 'bg-accent text-white' : 'bg-white/10 hover:bg-white/20'
+                className={`h-9 w-9 rounded-full backdrop-blur-md border flex items-center justify-center transition-all ${
+                  selectedCategory 
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 border-transparent text-white' 
+                    : 'bg-white/10 border-white/10 text-white hover:bg-white/20'
                 }`}
               >
-                <Filter size={20} />
-              </button>
+                <Filter size={18} />
+              </motion.button>
               
               <AnimatePresence>
                 {showFilterDropdown && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-2 w-48 bg-background border border-border rounded-2xl shadow-2xl overflow-hidden z-[60]"
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-2 w-44 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60]"
                   >
                     <div className="p-2 max-h-64 overflow-y-auto no-scrollbar">
                       <button
@@ -922,11 +978,13 @@ export default function Reels() {
                           setSelectedCategory(null);
                           setShowFilterDropdown(false);
                         }}
-                        className={`w-full text-left px-4 py-2 rounded-xl text-sm transition-colors ${
-                          selectedCategory === null ? 'bg-accent text-white' : 'text-primary hover:bg-surface'
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                          selectedCategory === null 
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                            : 'text-white/70 hover:bg-white/10 hover:text-white'
                         }`}
                       >
-                        All Categories
+                        All Reels
                       </button>
                       {REEL_CATEGORIES.map(cat => (
                         <button
@@ -935,8 +993,10 @@ export default function Reels() {
                             setSelectedCategory(cat);
                             setShowFilterDropdown(false);
                           }}
-                          className={`w-full text-left px-4 py-2 rounded-xl text-sm transition-colors ${
-                            selectedCategory === cat ? 'bg-accent text-white' : 'text-primary hover:bg-surface'
+                          className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                            selectedCategory === cat 
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                              : 'text-white/70 hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           {cat}
@@ -947,40 +1007,36 @@ export default function Reels() {
                 )}
               </AnimatePresence>
             </div>
-            <button 
-              onClick={() => setShowUploadModal(true)}
-              className="p-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all"
-            >
-              <Plus size={24} />
-            </button>
           </div>
         </div>
 
-        {/* Category Filter */}
-        <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pb-2">
-          <button
+        {/* Category Pills - horizontal scroll */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2 -mx-4 px-4">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
               selectedCategory === null 
                 ? 'bg-white text-black' 
-                : 'bg-white/10 text-white hover:bg-white/20'
+                : 'bg-white/10 text-white/80 hover:bg-white/20'
             }`}
           >
-            All
-          </button>
-          {REEL_CATEGORIES.map(cat => (
-            <button
+            For You
+          </motion.button>
+          {REEL_CATEGORIES.slice(0, 5).map(cat => (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 selectedCategory === cat 
                   ? 'bg-white text-black' 
-                  : 'bg-white/10 text-white hover:bg-white/20'
+                  : 'bg-white/10 text-white/80 hover:bg-white/20'
               }`}
             >
               {cat}
-            </button>
-          ))}
+            </motion.button>
+))}
         </div>
       </div>
 
@@ -992,13 +1048,13 @@ export default function Reels() {
         style={{ scrollBehavior: 'smooth' }}
       >
         {reels.length > 0 ? (
-          <div style={{ height: `${reels.length * 100}%`, position: 'relative' }}>
+          <div style={{ height: `${reels.length * 100}vh`, position: 'relative' }}>
             {/* Invisible snap points to maintain scroll behavior and snapping */}
             {reels.map((reel, index) => (
               <div 
                 key={`snap-${reel.id}`} 
-                className="snap-start absolute w-full h-full pointer-events-none" 
-                style={{ top: `${index * 100}%` }} 
+                className="snap-start absolute w-full h-screen pointer-events-none" 
+                style={{ top: `${index * 100}vh` }} 
               />
             ))}
 
@@ -1013,8 +1069,8 @@ export default function Reels() {
                 return (
                   <div 
                     key={reel.id}
-                    className="absolute w-full h-full"
-                    style={{ top: `${actualIndex * 100}%` }}
+                    className="absolute w-full h-screen"
+                    style={{ top: `${actualIndex * 100}vh` }}
                   >
                     <ReelCard reel={reel} isActive={actualIndex === activeIndex} />
                   </div>
@@ -1023,18 +1079,40 @@ export default function Reels() {
             })()}
           </div>
         ) : (
-          <div className="h-full w-full flex flex-col items-center justify-center text-white p-6 text-center">
-            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mb-6">
-              <Video size={48} className="text-white/40" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">No Reels Yet</h2>
-            <p className="text-white/60 max-w-xs mx-auto mb-8">Be the first to share a short video with the community!</p>
-            <button 
+          <div className="h-full w-full flex flex-col items-center justify-center text-white p-8 text-center">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-28 h-28 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center mb-6 border border-white/10"
+            >
+              <Video size={52} className="text-white/50" />
+            </motion.div>
+            <motion.h2 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="text-2xl font-bold mb-3"
+            >
+              No Reels Yet
+            </motion.h2>
+            <motion.p 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-white/50 max-w-[240px] mx-auto mb-8 text-sm leading-relaxed"
+            >
+              Be the first to share a short video with the community!
+            </motion.p>
+            <motion.button 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setShowUploadModal(true)}
-              className="px-8 py-3 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+              className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all"
             >
               Create First Reel
-            </button>
+            </motion.button>
           </div>
         )}
       </div>

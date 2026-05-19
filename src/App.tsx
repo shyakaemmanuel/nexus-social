@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ChatProvider, useChat } from './context/ChatContext';
-import { Home, MessageCircle, Users, User, LogIn, WifiOff, BarChart2, Video, Bell, Search as SearchIcon, Play, Settings as SettingsIcon } from 'lucide-react';
+import { Home, MessageCircle, Users, User, WifiOff, Video, Search as SearchIcon, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationToast } from './components/NotificationToast';
@@ -63,35 +63,42 @@ const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-xl border border-border h-16 flex items-center justify-around px-6 z-50 transition-all duration-300 rounded-[2rem] shadow-2xl shadow-zinc-500/20 dark:shadow-none w-[95%] max-w-2xl">
+    <nav className="fixed bottom-0 left-1/2 z-50 h-[72px] w-full max-w-[420px] -translate-x-1/2 border-t border-border/80 bg-background/95 px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-16px_40px_rgba(17,24,39,0.10)] backdrop-blur-2xl transition-colors duration-300">
+      <div className="grid h-full grid-cols-7 items-center gap-1">
       {navItems.map(({ path, icon: Icon, label, badge }) => {
         const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
         return (
           <Tooltip key={path} content={label} position="top" delay={300}>
             <button
               onClick={() => navigate(path)}
-              className={`relative flex flex-col items-center justify-center transition-all duration-300 group ${
-                isActive ? 'text-accent' : 'text-secondary hover:text-primary'
+              aria-label={label}
+              aria-current={isActive ? 'page' : undefined}
+              className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 transition-all duration-200 active:scale-95 ${
+                isActive ? 'text-primary' : 'text-secondary hover:bg-surface hover:text-primary'
               }`}
             >
-              <div className={`p-2 rounded-2xl transition-all duration-300 ${isActive ? 'bg-accent/10 scale-110' : 'group-hover:bg-surface'}`}>
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              <div className={`relative grid h-8 w-8 place-items-center rounded-full transition-all duration-200 ${isActive ? 'bg-primary text-background shadow-[0_8px_18px_rgba(17,24,39,0.18)]' : ''}`}>
+                <Icon size={20} strokeWidth={isActive ? 2.6 : 2.1} />
               </div>
               {badge > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                <span className="absolute right-1 top-0 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-background">
                   {badge > 99 ? '99+' : badge}
                 </span>
               )}
+              <span className={`max-w-full truncate text-[9px] font-semibold leading-none ${isActive ? 'opacity-100' : 'opacity-80'}`}>
+                {label}
+              </span>
               {isActive && (
                 <motion.div
                   layoutId="nav-indicator"
-                  className="absolute -bottom-1 w-1 h-1 bg-accent rounded-full shadow-[0_0_8px_rgba(var(--accent-rgb),0.8)]"
+                  className="absolute -top-2 h-1 w-7 rounded-full bg-accent shadow-[0_0_12px_rgba(var(--accent-rgb),0.65)]"
                 />
               )}
             </button>
           </Tooltip>
         );
       })}
+      </div>
     </nav>
   );
 };
@@ -139,7 +146,7 @@ export default function App() {
           <ChatProvider>
             <ErrorBoundary>
               <Router>
-              <div className="min-h-screen bg-surface pb-24 transition-colors duration-300">
+              <div className="min-h-screen bg-surface transition-colors duration-300">
                 <OfflineOverlay />
                 <NotificationToast />
                 <React.Suspense fallback={

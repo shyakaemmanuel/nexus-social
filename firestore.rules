@@ -50,6 +50,28 @@ service cloud.firestore {
       return isPrivate == true;
     }
 
+    function onlyFollowerCountChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount']);
+    }
+
+    function onlyFollowingCountChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followingCount']);
+    }
+
+    function validFollowersCountChange() {
+      return isAuthenticated() &&
+             onlyFollowerCountChanged() &&
+             (request.resource.data.followersCount == resource.data.followersCount + 1 ||
+              request.resource.data.followersCount == resource.data.followersCount - 1);
+    }
+
+    function validFollowingCountChangeForAcceptedRequest(userId) {
+      return isAuthenticated() &&
+             onlyFollowingCountChanged() &&
+             request.resource.data.followingCount == resource.data.followingCount + 1 &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)/followRequests/$(userId));
+    }
+
     // USERS COLLECTION
     match /users/{userId} {
       // Public profile info - anyone can read basic info
@@ -58,7 +80,7 @@ service cloud.firestore {
       
       // Only user can create/update/delete their own profile
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow update: if isOwner(userId) || validFollowersCountChange() || validFollowingCountChangeForAcceptedRequest(userId);
       allow delete: if isOwner(userId);
 
       // Blocked users - only owner can manage
@@ -86,19 +108,33 @@ service cloud.firestore {
       // Followers - public read, owner can manage
       match /followers/{followerId} {
         allow read: if isAuthenticated();
-        allow create, delete: if isOwner(userId);
+        allow create: if isAuthenticated() &&
+                      request.auth.uid == followerId &&
+                      request.resource.data.followerUid == followerId &&
+                      request.resource.data.followingUid == userId;
+        allow delete: if isOwner(userId) || (isAuthenticated() && request.auth.uid == followerId);
       }
 
       // Following - public read, owner can manage
       match /following/{followingId} {
         allow read: if isAuthenticated();
-        allow create, delete: if isOwner(userId);
+        allow create: if request.resource.data.followerUid == userId &&
+                      request.resource.data.followingUid == followingId &&
+                      (
+                        isOwner(userId) ||
+                        (isAuthenticated() &&
+                         request.auth.uid == followingId &&
+                         exists(/databases/$(database)/documents/users/$(followingId)/followRequests/$(userId)))
+                      );
+        allow delete: if isOwner(userId);
       }
 
       // Follow requests - for private accounts
       match /followRequests/{requestId} {
         allow read: if isOwner(userId) || request.auth.uid == resource.data.fromUid;
-        allow create: if request.auth.uid == resource.data.fromUid;
+        allow create: if isAuthenticated() &&
+                      request.auth.uid == request.resource.data.fromUid &&
+                      request.resource.data.toUid == userId;
         allow update, delete: if isOwner(userId);
       }
     }
@@ -270,8 +306,12 @@ service cloud.firestore {
     // FOLLOW COLLECTION (for quick follow lookups)
     match /follows/{followId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.followerUid == request.auth.uid;
-      allow delete: if isAuthenticated() && request.resource.data.followerUid == request.auth.uid;
+      allow create: if isAuthenticated() && (
+        request.resource.data.followerUid == request.auth.uid ||
+        (request.resource.data.followingUid == request.auth.uid &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)/followRequests/$(request.resource.data.followerUid)))
+      );
+      allow delete: if isAuthenticated() && resource.data.followerUid == request.auth.uid;
     }
 
     // FOLLOW REQUESTS COLLECTION

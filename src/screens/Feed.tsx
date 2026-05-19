@@ -103,38 +103,37 @@ export default function Feed() {
   });
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border px-4 sm:px-6 py-4 mb-6">
+    <div className="nexus-page">
+      <div className="sticky top-0 z-40 border-b border-border/80 bg-background/90 px-4 py-3 backdrop-blur-2xl">
         <div className="flex items-center justify-between">
-          <Logo variant="full" size="md" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+          <Logo variant="full" size="sm" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
 
-          <div className="flex items-center space-x-2">
-            <div className="relative hidden sm:block">
+          <div className="flex items-center gap-1.5">
+            <div className="relative hidden min-[390px]:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={16} />
               <input
                 type="text"
                 placeholder="Search Nexus..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-surface/80 backdrop-blur border border-border rounded-full py-2.5 pl-9 pr-10 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all w-48 lg:w-64 hover:bg-surface"
+                className="h-10 w-36 rounded-full border border-border bg-surface/80 py-2 pl-9 pr-9 text-xs font-medium backdrop-blur transition-all placeholder:text-secondary/75 hover:bg-surface focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary transition-colors hover:text-primary"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
-            <div className="flex items-center space-x-1">
-              <button className="p-2.5 text-primary hover:bg-surface/80 backdrop-blur rounded-full transition-all active:scale-90 shadow-sm hover:shadow-md">
-                <Heart size={22} />
+            <div className="flex items-center gap-1">
+              <button className="nexus-icon-button" aria-label="Activity">
+                <Heart size={20} />
               </button>
-              <button className="p-2.5 text-primary hover:bg-surface/80 backdrop-blur rounded-full transition-all active:scale-90 shadow-sm hover:shadow-md">
-                <Send size={22} />
+              <button className="nexus-icon-button" aria-label="Direct messages">
+                <Send size={20} />
               </button>
-              <div className="w-px h-6 bg-border mx-1" />
               <ThemeToggle />
               <NotificationCenter />
             </div>
@@ -142,7 +141,7 @@ export default function Feed() {
         </div>
       </div>
 
-      <div className="px-4">
+      <div className="px-3 pt-3">
         <StorySection onStoryClick={setSelectedStoryGroup} />
         <CreatePost />
 
@@ -155,10 +154,10 @@ export default function Feed() {
             />
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {filteredPosts.length === 0 ? (
-              <div className="text-center py-20">
-                <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="px-6 py-20 text-center">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-surface">
                   <Heart size={32} className="text-secondary" />
                 </div>
                 <p className="text-secondary font-medium">No posts yet</p>

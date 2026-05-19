@@ -4,30 +4,66 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   
-  --color-primary: #000000;
-  --color-secondary: #666666;
-  --color-accent: #0095f6; /* Instagram blue */
-  --color-success: #25d366; /* WhatsApp green */
+  --color-primary: #111827;
+  --color-secondary: #6b7280;
+  --color-accent: #0a84ff;
+  --color-success: #22c55e;
   --color-background: #ffffff;
-  --color-surface: #fafafa;
-  --color-border: #dbdbdb;
+  --color-surface: #f6f7f9;
+  --color-border: #e5e7eb;
+}
+
+:root {
+  --accent-rgb: 10, 132, 255;
 }
 
 :root.dark {
-  --color-primary: #ffffff;
-  --color-secondary: #a0a0a0;
-  --color-background: #000000;
-  --color-surface: #121212;
-  --color-border: #262626;
+  --color-primary: #f9fafb;
+  --color-secondary: #9ca3af;
+  --color-background: #0b0d12;
+  --color-surface: #151821;
+  --color-border: #272b36;
 }
 
 @layer base {
+  html {
+    @apply bg-surface;
+  }
+
   body {
-    @apply font-sans bg-background text-primary antialiased transition-colors duration-300;
+    @apply min-h-screen font-sans bg-surface text-primary antialiased transition-colors duration-300;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
 
 @layer utilities {
+  .nexus-shell {
+    @apply w-full max-w-[420px] mx-auto min-h-screen bg-background border-x border-border/70 shadow-[0_24px_80px_rgba(17,24,39,0.10)] transition-colors duration-300;
+  }
+  .nexus-page {
+    @apply w-full max-w-[420px] mx-auto bg-background min-h-screen pb-24;
+  }
+  .nexus-card {
+    @apply bg-background border border-border/80 rounded-2xl shadow-[0_8px_28px_rgba(17,24,39,0.06)];
+  }
+  .nexus-icon-button {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full text-primary transition-all duration-200 hover:bg-surface active:scale-95;
+  }
+  .nexus-primary-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-bold text-background transition-all duration-200 hover:opacity-90 active:scale-95 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .nexus-soft-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-primary transition-all duration-200 hover:border-accent/40 hover:text-accent active:scale-95 disabled:pointer-events-none disabled:opacity-50;
+  }
   .glass {
     @apply bg-background/60 backdrop-blur-xl border border-border/50;
   }
@@ -35,10 +71,10 @@
     @apply bg-black/40 backdrop-blur-xl border border-white/10;
   }
   .shadow-nexus {
-    @apply shadow-[0_8px_30px_rgb(0,0,0,0.04)];
+    @apply shadow-[0_8px_30px_rgba(17,24,39,0.06)];
   }
   .shadow-nexus-lg {
-    @apply shadow-[0_20px_50px_rgba(0,0,0,0.1)];
+    @apply shadow-[0_20px_50px_rgba(17,24,39,0.12)];
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -47,6 +83,14 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+/* Custom animation for reel music disc */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
 }
 
 /* Custom scrollbar for chat */
@@ -79,4 +123,3 @@
 .markdown-body p:last-child {
   margin-bottom: 0;
 }
-

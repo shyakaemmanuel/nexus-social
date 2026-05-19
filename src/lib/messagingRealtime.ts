@@ -62,6 +62,12 @@ export async function sendMessage(
   
   const chat = chatSnap.data() as Chat;
   const recipientUid = chat.participants.find(uid => uid !== senderUid);
+  const lastMessage = content?.trim() || (
+    mediaType === 'image' ? 'Photo' :
+    mediaType === 'video' ? 'Video' :
+    mediaType === 'reel' ? 'Reel' :
+    'Message'
+  );
 
   // Use batch write for atomic operations
   const batch = writeBatch(db);
@@ -71,7 +77,7 @@ export async function sendMessage(
   
   // Update chat with last message
   batch.update(chatRef, {
-    lastMessage: content,
+    lastMessage,
     lastMessageAt: serverTimestamp(),
     lastMessageSenderId: senderUid,
     [`unreadCount.${recipientUid}`]: increment(1)

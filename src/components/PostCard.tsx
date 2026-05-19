@@ -11,6 +11,7 @@ import { EditPostModal } from './EditPostModal';
 import { CommentsModal } from './CommentsModal';
 import { UserStatusDot } from './UserStatusDot';
 import { Tooltip } from './Tooltip';
+import { followUser, unfollowUser } from '../lib/follow';
 
 interface PostCardProps {
   post: Post;
@@ -51,7 +52,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
     // Fetch author for status and follow state
     const unsubscribeAuthor = onSnapshot(doc(db, 'users', post.authorUid), (docSnap) => {
       if (docSnap.exists()) {
-        setAuthor(docSnap.data() as User);
+        setAuthor({ uid: docSnap.id, ...docSnap.data() } as User);
       }
     });
 
@@ -101,27 +102,19 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
     e.stopPropagation();
     if (!user || !author || followLoading) return;
     setFollowLoading(true);
-
-    const followingRef = doc(db, 'users', user.uid, 'following', author.uid);
-    const followerRef = doc(db, 'users', author.uid, 'followers', user.uid);
+    const nextFollowing = !isFollowing;
+    setIsFollowing(nextFollowing);
 
     try {
-      if (isFollowing) {
-        await deleteDoc(followingRef);
-        await deleteDoc(followerRef);
-        await updateDoc(doc(db, 'users', user.uid), { followingCount: increment(-1) });
-        await updateDoc(doc(db, 'users', author.uid), { followersCount: increment(-1) });
+      if (!nextFollowing) {
+        await unfollowUser(user.uid, author.uid);
       } else {
-        await setDoc(followingRef, { uid: author.uid, createdAt: serverTimestamp() });
-        await setDoc(followerRef, { uid: user.uid, createdAt: serverTimestamp() });
-        await updateDoc(doc(db, 'users', user.uid), { followingCount: increment(1) });
-        await updateDoc(doc(db, 'users', author.uid), { followersCount: increment(1) });
+        await followUser(user.uid, author.uid);
 
-        // Send notification
         await addDoc(collection(db, 'users', author.uid, 'notifications'), {
-          type: 'follow',
-          title: 'New Follower',
-          body: `${user.displayName} started following you`,
+          type: author.isPrivate ? 'follow_request' : 'follow',
+          title: author.isPrivate ? 'New Follow Request' : 'New Follower',
+          body: author.isPrivate ? `${user.displayName} wants to follow you` : `${user.displayName} started following you`,
           fromUid: user.uid,
           fromName: user.displayName,
           fromPhoto: user.photoURL || '',
@@ -130,7 +123,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
         });
       }
     } catch (error) {
-      // Error toggling follow
+      setIsFollowing(!nextFollowing);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${author.uid}/followers`);
     } finally {
       setFollowLoading(false);
     }
@@ -221,17 +215,17 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="bg-background border border-border rounded-[2.5rem] mb-8 overflow-hidden shadow-nexus transition-all duration-500 hover:shadow-nexus-lg w-full max-w-lg mx-auto"
+      className="nexus-card mb-4 w-full overflow-hidden transition-all duration-300 hover:shadow-nexus-lg"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-5">
-        <div className="flex items-center space-x-3">
+      <div className="flex items-center justify-between px-4 py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="relative group cursor-pointer">
-            <div className="absolute -inset-1 bg-gradient-to-tr from-accent to-purple-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity blur-[2px]" />
+            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-tr from-accent via-fuchsia-500 to-amber-400 opacity-0 blur-[1px] transition-opacity group-hover:opacity-100" />
             <img
               src={post.authorPhoto || `https://ui-avatars.com/api/?name=${post.authorName}&background=random`}
               alt={post.authorName}
-              className="relative w-11 h-11 rounded-full object-cover border-2 border-background"
+              className="relative h-10 w-10 rounded-full border-2 border-background object-cover"
             />
             {author && (
               <UserStatusDot 
@@ -241,31 +235,31 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
               />
             )}
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="font-bold text-sm text-primary tracking-tight">{post.authorName}</h3>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <h3 className="truncate text-sm font-bold tracking-tight text-primary">{post.authorName}</h3>
               {user && user.uid !== post.authorUid && (
                 <button
                   onClick={handleToggleFollow}
                   disabled={followLoading}
-                  className={`text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  className={`shrink-0 text-[10px] font-bold transition-colors ${
                     isFollowing ? 'text-secondary' : 'text-accent'
                   }`}
                 >
-                  • {isFollowing ? 'Following' : 'Follow'}
+                  {isFollowing ? 'Following' : 'Follow'}
                 </button>
               )}
             </div>
-            <p className="text-[10px] text-secondary font-bold uppercase tracking-widest">
+            <p className="text-[11px] font-medium text-secondary">
               {post.createdAt ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-1">
           {isAuthor && (
             <button
               onClick={() => setIsEditOpen(true)}
-              className="p-2 text-accent hover:bg-accent/5 rounded-full transition-all"
+              className="nexus-icon-button text-accent"
               title="Edit Post"
             >
               <Edit2 size={18} />
@@ -274,13 +268,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
           {canDelete && (
             <button
               onClick={handleDelete}
-              className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-all"
+              className="nexus-icon-button text-red-500 hover:bg-red-50"
               title="Delete Post"
             >
               <Trash2 size={18} />
             </button>
           )}
-          <button className="p-2 text-secondary hover:text-primary transition-all">
+          <button className="nexus-icon-button text-secondary hover:text-primary" aria-label="More post options">
             <MoreHorizontal size={20} />
           </button>
         </div>
@@ -301,15 +295,15 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
       />
 
       {/* Content */}
-      <div className="px-6 pb-4">
-        <p className="text-sm leading-relaxed text-primary/90 mb-4 whitespace-pre-wrap">{post.content}</p>
+      <div className="px-4 pb-3">
+        <p className="mb-3 whitespace-pre-wrap text-[15px] leading-relaxed text-primary/90">{post.content}</p>
         {post.tags && post.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {post.tags.map(tag => (
               <span 
                 key={tag} 
                 onClick={() => onTagClick?.(tag)}
-                className="text-accent text-[11px] font-black uppercase tracking-widest hover:text-accent/70 cursor-pointer transition-colors"
+                className="cursor-pointer rounded-full bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent transition-colors hover:bg-accent/15"
               >
                 #{tag}
               </span>
@@ -321,7 +315,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
       {/* Media */}
       {post.mediaUrl && (
         <div 
-          className="relative aspect-square bg-surface group cursor-pointer overflow-hidden"
+          className="group relative aspect-square cursor-pointer overflow-hidden bg-surface"
           onClick={handleDoubleTap}
         >
           {post.mediaType === 'video' ? (
@@ -351,13 +345,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
       )}
 
       {/* Actions */}
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center space-x-6">
+      <div className="px-4 pb-4 pt-3">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1">
             <Tooltip content={isLiked ? 'Unlike' : 'Like'} position="top" delay={300}>
               <button
                 onClick={handleLike}
-                className={`transition-all active:scale-150 ${isLiked ? 'text-red-500 fill-red-500' : 'text-primary hover:text-secondary'}`}
+                className={`nexus-icon-button ${isLiked ? 'text-red-500 fill-red-500' : 'text-primary hover:text-secondary'}`}
               >
                 <Heart size={26} strokeWidth={isLiked ? 0 : 2} />
               </button>
@@ -365,13 +359,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
             <Tooltip content="Comment" position="top" delay={300}>
               <button
                 onClick={() => setIsCommentsOpen(true)}
-                className="text-primary hover:text-secondary transition-all active:scale-125"
+                className="nexus-icon-button text-primary hover:text-secondary"
               >
                 <MessageCircle size={26} />
               </button>
             </Tooltip>
             <Tooltip content="Share" position="top" delay={300}>
-              <button className="text-primary hover:text-secondary transition-all active:scale-125">
+              <button className="nexus-icon-button text-primary hover:text-secondary">
                 <Share2 size={26} />
               </button>
             </Tooltip>
@@ -379,14 +373,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
           <Tooltip content={isSaved ? 'Unsave' : 'Save'} position="top" delay={300}>
             <button
               onClick={handleSave}
-              className={`transition-all active:scale-150 ${isSaved ? 'text-accent fill-accent' : 'text-primary hover:text-secondary'}`}
+              className={`nexus-icon-button ${isSaved ? 'text-accent fill-accent' : 'text-primary hover:text-secondary'}`}
             >
               <Bookmark size={26} strokeWidth={isSaved ? 0 : 2} />
             </button>
           </Tooltip>
         </div>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
               {[1, 2, 3].map(i => (
                 <div key={i} className="w-5 h-5 rounded-full border-2 border-background bg-surface overflow-hidden">
@@ -394,13 +388,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onTagClick }) => {
                 </div>
               ))}
             </div>
-            <p className="text-xs font-black tracking-tight text-primary">
-              {likesCount.toLocaleString()} <span className="text-secondary font-bold uppercase text-[10px] tracking-widest ml-1">likes</span>
+            <p className="text-sm font-bold tracking-tight text-primary">
+              {likesCount.toLocaleString()} <span className="ml-1 text-xs font-medium text-secondary">likes</span>
             </p>
           </div>
           <button 
             onClick={() => setIsCommentsOpen(true)}
-            className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] hover:text-accent transition-colors"
+            className="text-xs font-medium text-secondary transition-colors hover:text-accent"
           >
             View all {commentsCount} comments
           </button>
